@@ -1,0 +1,32 @@
+[
+  {
+    "request": {
+      "name": "ReadEncoderCounters",
+      "type": "read",
+      "args": [
+        12528,
+        53212
+      ]
+    },
+    "validation": {
+      "write_bytes": "804e",
+      "read_bytes": "00000000000030f0000000000000cfdccf2e"
+    }
+  },
+  {
+    "request": {
+      "name": "VelocityPIDConstantsM1",
+      "type": "write",
+      "args": [
+        0,
+        8631,
+        878,
+        201562
+      ]
+    },
+    "validation": {
+      "write_bytes": "801c00000000000021b70000036e0003135a7d8e",
+      "read_bytes": "ff"
+    }
+  }
+]
