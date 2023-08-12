@@ -65,7 +65,7 @@ private:
 
 TEST_F(TestExecutor, WriteVelocityPIDConstantsM1SerializationTest)
 {
-  this->executeTest(TestData<VelocityPIDConstantsM1>{
+  this->executeTest(TestData<roboclaw_serial::VelocityPIDConstantsM1>{
     {0, 8631, 878, 201562},  // request arguments
     {
       "write",  // requestType
@@ -80,7 +80,7 @@ TEST_F(TestExecutor, WriteVelocityPIDConstantsM1SerializationTest)
 
 TEST_F(TestExecutor, ReadEncoderCountersSerializationTest)
 {
-  this->executeTest(TestData<EncoderCounters>{
+  this->executeTest(TestData<roboclaw_serial::EncoderCounters>{
     {12528, 53212},  // request arguments
     {
       "read",                              // requestType
