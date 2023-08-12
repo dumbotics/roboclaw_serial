@@ -21,7 +21,8 @@
 namespace roboclaw_serial
 {
 
-enum class Command : unsigned char {
+enum class Command : unsigned char
+{
   DRIVE_M1_FWD = 0,                   // Drive Forward Motor 1
   DRIVE_M1_BWD = 1,                   // Drive Backwards Motor 1
   SET_MAIN_VOLT_MIN = 2,              // Set Main Voltage Minimum
@@ -161,11 +162,11 @@ enum class Command : unsigned char {
 };
 
 // Template struct used as the basis for all RoboClaw commands
-template <Command ReadCommand, Command WriteCommand, typename... Args>
+template<Command ReadCommand, Command WriteCommand, typename ... Args>
 struct Request
 {
   Request() = default;
-  explicit Request(Args &&... args) { fields = std::forward_as_tuple(args...); }
+  explicit Request(Args &&... args) {fields = std::forward_as_tuple(args ...);}
   // Tuple of all types required for serialization
   using ArgsTuple = std::tuple<Args...>;
 
@@ -175,9 +176,9 @@ struct Request
   // The command to write data to the roboclaw
   static constexpr uint8_t write_command = uint8_t(WriteCommand);
 
-  static bool canRead() { return ReadCommand != Command::NONE; }
+  static bool canRead() {return ReadCommand != Command::NONE;}
 
-  static bool canWrite() { return WriteCommand != Command::NONE; }
+  static bool canWrite() {return WriteCommand != Command::NONE;}
 
   ArgsTuple fields;
 };

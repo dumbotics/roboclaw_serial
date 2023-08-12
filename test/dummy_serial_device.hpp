@@ -29,7 +29,7 @@ public:
   : expected_read_buffer_(std::move(read_buffer)), expected_write_buffer_(std::move(write_buffer))
   {
     connect("dummy device");
-  };
+  }
 
   bool connect(const std::string &) override
   {
@@ -37,7 +37,7 @@ public:
     return true;
   }
 
-  void disconnect() override { connected_ = false; }
+  void disconnect() override {connected_ = false;}
 
   std::size_t write(const std::byte * buffer, std::size_t count) override
   {

@@ -38,17 +38,17 @@ class Interface
 public:
   typedef std::shared_ptr<Interface> SharedPtr;
   Interface() = default;
-  explicit Interface(const SerialDevice::SharedPtr & device) { setDevice(device); }
+  explicit Interface(const SerialDevice::SharedPtr & device) {setDevice(device);}
 
-  void setDevice(const SerialDevice::SharedPtr & device) { device_ = device; }
+  void setDevice(const SerialDevice::SharedPtr & device) {device_ = device;}
 
-  template <typename Request>
+  template<typename Request>
   void read(Request & request, const unsigned char address = 128)
   {
     request.fields = read<Request>(address);
   }
 
-  template <typename Request>
+  template<typename Request>
   typename Request::ArgsTuple read(const unsigned char address = 128)
   {
     this->bufferSetupRead<Request>(address);
@@ -83,7 +83,7 @@ public:
 
     // Extract the data
     typename Request::ArgsTuple fields;
-    std::apply([&](auto &&... args) { buffer_.unpack(args...); }, fields);
+    std::apply([&](auto &&... args) {buffer_.unpack(args ...);}, fields);
 
     return fields;
   }
@@ -95,14 +95,14 @@ public:
   //     return write<Request>(std::forward_as_tuple(args...));
   // }
 
-  template <typename Request>
+  template<typename Request>
   void write(const Request & request, const unsigned char address = 128)
   {
     // Write the fields to the roboclaw
     write<Request>(request.fields, address);
   }
 
-  template <typename Request>
+  template<typename Request>
   void write(const typename Request::ArgsTuple & fields, const unsigned char address = 128)
   {
     // Initialize buffer with Write request, fields, and CRC
@@ -117,15 +117,15 @@ public:
   }
 
 private:
-  template <typename Request>
+  template<typename Request>
   void bufferPackFields(const typename Request::ArgsTuple & fields)
   {
-    auto pushToBuffer = [this](const auto &... items) { (this->buffer_.push_back(items), ...); };
+    auto pushToBuffer = [this](const auto &... items) {(this->buffer_.push_back(items), ...);};
 
     std::apply(pushToBuffer, fields);
   }
 
-  template <typename Request>
+  template<typename Request>
   void bufferUnpackFields(typename Request::ArgsTuple & fields)
   {
     std::apply(
@@ -149,7 +149,7 @@ private:
   }
 
   // Setup the buffer for a write request
-  template <typename Request>
+  template<typename Request>
   void bufferSetupWrite(const unsigned char address, const typename Request::ArgsTuple & fields)
   {
     // Set size of the buffer to 0
@@ -167,7 +167,7 @@ private:
   }
 
   // Setup the buffer for a read request
-  template <typename Request>
+  template<typename Request>
   void bufferSetupRead(const unsigned char address)
   {
     // Set size of the buffer to 0

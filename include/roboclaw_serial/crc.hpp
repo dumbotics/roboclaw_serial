@@ -73,14 +73,14 @@ static constexpr std::array<uint16_t, 256> crc_table_le = {
 inline void updateCRC16(uint16_t & crc, const std::byte & byte)
 {
   crc = (crc >> 8) ^ roboclaw_serial::crc_table[(crc ^ static_cast<unsigned char>(byte)) & 0xFF];
-};
+}
 
 inline void updateCRC16b(uint16_t & crc, const std::byte & byte)
 {
   crc = (crc << 8) ^ roboclaw_serial::crc_table_le[((crc >> 8) ^ static_cast<unsigned char>(byte))];
-};
+}
 
-template <std::size_t N>
+template<std::size_t N>
 inline uint16_t initializeCRC16(
   const std::array<std::byte, N> & data, const std::size_t n_bytes = N)
 {
@@ -88,7 +88,7 @@ inline uint16_t initializeCRC16(
 
   if (n_bytes > data.size()) {
     throw std::out_of_range(
-      "The size of data selected for computing the CRC (n_bytes) exceeds the buffer capacity.");
+            "The size of data selected for computing the CRC (n_bytes) exceeds the buffer capacity.");
   }
 
   for (uint i = 0; i < n_bytes; ++i) {
@@ -96,6 +96,6 @@ inline uint16_t initializeCRC16(
   }
 
   return crc;
-};
+}
 
 }  // namespace roboclaw_serial

@@ -19,7 +19,7 @@
 
 namespace roboclaw_serial
 {
-template <std::size_t Size>
+template<std::size_t Size>
 class SerializedBuffer
 {
 public:
@@ -29,17 +29,17 @@ public:
   SerializedBuffer() = default;
   ~SerializedBuffer() = default;
 
-  inline auto data() { return data_.data() + start_idx_; }
+  inline auto data() {return data_.data() + start_idx_;}
 
-  inline auto begin() { return data_.begin() + start_idx_; }
-  inline auto end() { return data_.begin() + end_idx_; }
+  inline auto begin() {return data_.begin() + start_idx_;}
+  inline auto end() {return data_.begin() + end_idx_;}
 
-  inline auto begin() const { return data_.cbegin() + start_idx_; }
-  inline auto end() const { return data_.cbegin() + end_idx_; }
+  inline auto begin() const {return data_.cbegin() + start_idx_;}
+  inline auto end() const {return data_.cbegin() + end_idx_;}
 
-  inline auto size() const { return end_idx_ - start_idx_; }
+  inline auto size() const {return end_idx_ - start_idx_;}
 
-  constexpr inline auto max_size() const { return Size; }
+  constexpr inline auto max_size() const {return Size;}
 
   inline auto resize(const std::size_t size)
   {
@@ -53,14 +53,14 @@ public:
     end_idx_ = 0;
   }
 
-  inline constexpr value_type & operator[](size_t pos) { return data_[start_idx_ + pos]; }
+  inline constexpr value_type & operator[](size_t pos) {return data_[start_idx_ + pos];}
 
   inline constexpr const value_type & operator[](size_t pos) const
   {
     return data_[start_idx_ + pos];
   }
 
-  template <typename T>
+  template<typename T>
   inline void push_back(const T & arg)
   {
     // static_assert(std::is_arithmetic<T>::value, "The provided type is not an arithmetic type.");
@@ -77,14 +77,14 @@ public:
     }
   }
 
-  template <typename... Args>
+  template<typename ... Args>
   inline void unpack(Args &... values)
   {
     // Use a fold expression to call pop_front() for each value
     ((values = this->pop_front<std::remove_reference_t<Args>>()), ...);
   }
 
-  template <typename T>
+  template<typename T>
   inline T pop_back()
   {
     // Ensure that the range of valid data greater than or equal to zero
@@ -102,7 +102,7 @@ public:
   }
 
   // Use SFINAE to ensure this function gets called for non-strings
-  template <typename T>
+  template<typename T>
   inline typename std::enable_if<!std::is_same<T, std::string>::value, T>::type pop_front()
   {
     T value;
@@ -119,7 +119,7 @@ public:
   }
 
   // Use SFINAE to ensure that this function gets called for strings
-  template <typename T>
+  template<typename T>
   inline typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type pop_front()
   {
     // The string will be the size of the entire buffer
