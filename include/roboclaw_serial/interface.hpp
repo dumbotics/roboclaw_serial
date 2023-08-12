@@ -55,7 +55,7 @@ public:
 
     crc_ = 0;
     for (const auto & byte : buffer_) {
-      updateCRC16b(crc_, byte);
+      updateCRC16(crc_, byte);
     }
 
     // Write the buffer to the serial device
@@ -74,7 +74,7 @@ public:
 
     // Update the CRC with the new data and ensure it matches
     for (auto byte : buffer_) {
-      updateCRC16b(crc_, byte);
+      updateCRC16(crc_, byte);
     }
 
     if (crc_ != recv_crc) {
@@ -141,7 +141,7 @@ private:
     // Calculate the CRC16 value
     crc_ = 0;
     for (const auto & byte : buffer_) {
-      updateCRC16b(crc_, byte);
+      updateCRC16(crc_, byte);
     }
 
     // Add the CRC6 to the end of the buffer
