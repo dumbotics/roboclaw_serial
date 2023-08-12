@@ -7,9 +7,6 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <unistd.h>
-#include <fcntl.h>
-#include <termios.h>
 #include <iostream>
 #include <memory>
 #include <mutex>
