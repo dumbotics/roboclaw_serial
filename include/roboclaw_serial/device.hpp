@@ -33,8 +33,8 @@ public:
 
   SerialDevice() = default;
 
-  explicit SerialDevice(const std::string device) { connect(device); }
-  virtual ~SerialDevice() { disconnect(); }
+  explicit SerialDevice(const std::string device) {connect(device);}
+  virtual ~SerialDevice() {disconnect();}
 
   virtual bool connect(const std::string & device)
   {
@@ -59,7 +59,7 @@ public:
     }
   }
 
-  bool connected() const { return connected_; }
+  bool connected() const {return connected_;}
 
   virtual std::size_t write(const std::byte * buffer, std::size_t count)
   {

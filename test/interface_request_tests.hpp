@@ -33,7 +33,7 @@ struct Data
   const std::vector<std::byte> readBytes;
 };
 
-template <typename RequestType>
+template<typename RequestType>
 struct TestData
 {
   typename RequestType::ArgsTuple args;
@@ -44,7 +44,7 @@ class TestExecutor : public ::testing::Test
 {
 protected:
   // Method to execute test
-  template <typename RequestType>
+  template<typename RequestType>
   void executeTest(const TestData<RequestType> & p)
   {
     // Create a dummy device
@@ -79,29 +79,31 @@ private:
 
 TEST_F(TestExecutor, WriteVelocityPIDConstantsM1SerializationTest)
 {
-  this->executeTest(TestData<roboclaw_serial::VelocityPIDConstantsM1>{
+  this->executeTest(
+    TestData<roboclaw_serial::VelocityPIDConstantsM1>{
     {0, 8631, 878, 201562},  // request arguments
     {
       "write",  // requestType
       {std::byte{0x80}, std::byte{0x1c}, std::byte{0x00}, std::byte{0x00},
-       std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-       std::byte{0x21}, std::byte{0xb7}, std::byte{0x00}, std::byte{0x00},
-       std::byte{0x03}, std::byte{0x6e}, std::byte{0x00}, std::byte{0x03},
-       std::byte{0x13}, std::byte{0x5a}, std::byte{0x7d}, std::byte{0x8e}},  // writeBytes
+        std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
+        std::byte{0x21}, std::byte{0xb7}, std::byte{0x00}, std::byte{0x00},
+        std::byte{0x03}, std::byte{0x6e}, std::byte{0x00}, std::byte{0x03},
+        std::byte{0x13}, std::byte{0x5a}, std::byte{0x7d}, std::byte{0x8e}}, // writeBytes
       {std::byte{0xff}}                                                      // readBytes
     }});
 }
 
 TEST_F(TestExecutor, ReadEncoderCountersSerializationTest)
 {
-  this->executeTest(TestData<roboclaw_serial::EncoderCounters>{
+  this->executeTest(
+    TestData<roboclaw_serial::EncoderCounters>{
     {12528, 53212},  // request arguments
     {
       "read",                              // requestType
       {std::byte{0x80}, std::byte{0x4e}},  // writeBytes
       {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-       std::byte{0x00}, std::byte{0x30}, std::byte{0xf0}, std::byte{0x00}, std::byte{0x00},
-       std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0xcf},
-       std::byte{0xdc}, std::byte{0xcf}, std::byte{0x2e}}  // readBytes
+        std::byte{0x00}, std::byte{0x30}, std::byte{0xf0}, std::byte{0x00}, std::byte{0x00},
+        std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0xcf},
+        std::byte{0xdc}, std::byte{0xcf}, std::byte{0x2e}} // readBytes
     }});
 }
