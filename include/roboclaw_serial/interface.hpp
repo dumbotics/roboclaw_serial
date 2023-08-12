@@ -1,6 +1,5 @@
 #pragma once
 
-#include "roboclaw_serial/status.hpp"
 #include "roboclaw_serial/crc.hpp"
 #include "roboclaw_serial/device.hpp"
 #include "roboclaw_serial/serialization.hpp"
