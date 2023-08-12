@@ -144,6 +144,11 @@ namespace roboclaw_serial
     template <Command ReadCommand, Command WriteCommand, typename... Args>
     struct Request
     {
+        Request() = default;
+        Request(Args&&... args)
+        {
+            fields = std::forward_as_tuple(args...);
+        }
         // Tuple of all types required for serialization
         using ArgsTuple = std::tuple<Args...>;
 
