@@ -15,7 +15,6 @@
 #include "roboclaw_serial/command.hpp"
 #include "roboclaw_serial/crc.hpp"
 #include "roboclaw_serial/device.hpp"
-#include "roboclaw_serial/serialization.hpp"
 #include "roboclaw_serial/serialized_buffer.hpp"
 
 namespace roboclaw_serial
