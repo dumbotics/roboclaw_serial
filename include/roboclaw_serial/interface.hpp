@@ -51,6 +51,9 @@ public:
   template<typename Request>
   typename Request::ArgsTuple read(const unsigned char address = 128)
   {
+    // Prevent parallel reads/writes
+    std::lock_guard<std::mutex> lock(mutex_);
+
     this->bufferSetupRead<Request>(address);
 
     crc_ = 0;
@@ -105,6 +108,9 @@ public:
   template<typename Request>
   void write(const typename Request::ArgsTuple & fields, const unsigned char address = 128)
   {
+    // Prevent parallel read/writes
+    std::lock_guard<std::mutex> lock(mutex_);
+
     // Initialize buffer with Write request, fields, and CRC
     this->bufferSetupWrite<Request>(address, fields);
 
