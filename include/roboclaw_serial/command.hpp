@@ -202,7 +202,7 @@ using MainBatteryVoltageCutoff =
 // of 0 to 4,294,967,295. Absolute encoder values are converted from
 // an analog voltage into a value from 0 to 2047 for the full 2V
 // analog range.
-using EncoderCounters = Request<Command::READ_M1_M2_ENC, Command::NONE, int64_t, int64_t>;
+using EncoderCounters = Request<Command::READ_M1_M2_ENC, Command::NONE, int32_t, int32_t>;
 
 // Several motor and quadrature combinations can be used with RoboClaw.
 // In some cases the default PID values will need to be tuned for the
