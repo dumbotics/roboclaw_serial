@@ -8,5 +8,6 @@
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>gtest</test_depend>
 
 </package>
