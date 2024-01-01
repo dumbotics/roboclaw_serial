@@ -26,11 +26,21 @@
 #include "roboclaw_serial/command.hpp"
 #include "roboclaw_serial/interface.hpp"
 
+// Helper function to create a byte vector from char vector
+std::vector<std::byte> create_byte_vector(std::vector<unsigned char> list)
+{
+  std::vector<std::byte> result;
+  for (auto val : list) {
+    result.push_back(static_cast<std::byte>(val));
+  }
+  return result;
+}
+
 struct Data
 {
   std::string requestType;  // "read" or "write"
-  const std::vector<std::byte> writeBytes;
-  const std::vector<std::byte> readBytes;
+  const std::vector<unsigned char> writeBytes;
+  const std::vector<unsigned char> readBytes;
 };
 
 template<typename RequestType>
@@ -48,8 +58,9 @@ protected:
   void executeTest(const TestData<RequestType> & p)
   {
     // Create a dummy device
-    auto device =
-      std::make_shared<DummyTestDevice>(std::move(p.data.readBytes), std::move(p.data.writeBytes));
+    auto device = std::make_shared<DummyTestDevice>(
+      create_byte_vector(p.data.readBytes),
+      create_byte_vector(p.data.writeBytes));
 
     // Update the interface to use the dummy device for this test
     interface_.setDevice(device);
@@ -81,15 +92,24 @@ TEST_F(TestExecutor, WriteVelocityPIDConstantsM1SerializationTest)
 {
   this->executeTest(
     TestData<roboclaw_serial::VelocityPIDConstantsM1>{
-    {0, 8631, 878, 201562},  // request arguments
+    {
+      0,
+      8631,
+      878,
+      201562
+    },  // request arguments
     {
       "write",  // requestType
-      {std::byte{0x80}, std::byte{0x1c}, std::byte{0x00}, std::byte{0x00},
-        std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-        std::byte{0x21}, std::byte{0xb7}, std::byte{0x00}, std::byte{0x00},
-        std::byte{0x03}, std::byte{0x6e}, std::byte{0x00}, std::byte{0x03},
-        std::byte{0x13}, std::byte{0x5a}, std::byte{0x7d}, std::byte{0x8e}}, // writeBytes
-      {std::byte{0xff}}                                                      // readBytes
+      {
+        0x80,  // Address byte
+        0x1c,  // Command byte
+        0x00, 0x00, 0x00, 0x00,  // P parameter
+        0x00, 0x00, 0x21, 0xb7,  // I parameter
+        0x00, 0x00, 0x03, 0x6e,  // D parameter
+        0x00, 0x03, 0x13, 0x5a,  // QPPS value
+        0x7d, 0x8e
+      },  // writeBytes
+      {0xff}  // readBytes
     }});
 }
 
@@ -99,11 +119,8 @@ TEST_F(TestExecutor, ReadEncoderCountersSerializationTest)
     TestData<roboclaw_serial::EncoderCounters>{
     {12528, 53212},  // request arguments
     {
-      "read",                              // requestType
-      {std::byte{0x80}, std::byte{0x4e}},  // writeBytes
-      {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-        std::byte{0x00}, std::byte{0x30}, std::byte{0xf0}, std::byte{0x00}, std::byte{0x00},
-        std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00}, std::byte{0xcf},
-        std::byte{0xdc}, std::byte{0xcf}, std::byte{0x2e}} // readBytes
+      "read",  // requestType
+      {0x80, 0x4e},  // writeBytes
+      {0x00, 0x00, 0x30, 0xf0, 0x00, 0x00, 0xcf, 0xdc, 0xd4, 0xdb}  // readBytes
     }});
 }
