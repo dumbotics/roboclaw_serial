@@ -33,6 +33,14 @@ install(EXPORT roboclaw_serial_targets
     DESTINATION lib/cmake/roboclaw_serial
 )
 
+# Build examples
+option(BUILD_EXAMPLES "Build simple roboclaw_serial examples" ON)
+
+# Add examples subdirectory
+if(BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
+
 # Testing
 include(CTest) # Provides option for BUILD_TESTING, defaulted to ON
 if(BUILD_TESTING)
