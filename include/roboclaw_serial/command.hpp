@@ -228,6 +228,8 @@ using VelocityPIDConstantsM2 = Request<
 using DriveM1M2WithSignedSpeed =
   Request<Command::NONE, Command::DRIVE_M1_M2_SGN_SPD, int32_t, int32_t>;
 
+using DriveM1Forward = Request<Command::NONE, Command::DRIVE_M1_FWD, uint8_t>;
+
 // Add additional commands here. See BasicMicro user manual for examples
 // https://downloads.basicmicro.com/docs/roboclaw_user_manual.pdf
 
