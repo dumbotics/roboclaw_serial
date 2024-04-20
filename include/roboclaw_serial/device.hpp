@@ -108,6 +108,8 @@ private:
   {
     struct termios options;
     tcgetattr(fd_, &options);
+    cfsetispeed(&options, B38400);  // Set input baud rate
+    cfsetospeed(&options, B38400);  // Set output baud rate
     options.c_cflag = CS8 | CLOCAL | CREAD;
     options.c_iflag = IGNPAR;
     options.c_oflag = 0;
