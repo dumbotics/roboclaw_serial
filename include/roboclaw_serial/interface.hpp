@@ -24,6 +24,8 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 #include "roboclaw_serial/command.hpp"
@@ -45,12 +47,20 @@ public:
   template<typename Request>
   void read(Request & request, const unsigned char address = 128)
   {
+    if constexpr (Request::read_command == uint8_t(Command::NONE)) {
+      throw std::invalid_argument("Request does not support reads");
+    }
     request.fields = read<Request>(address);
   }
 
   template<typename Request>
   typename Request::ArgsTuple read(const unsigned char address = 128)
   {
+    if constexpr (Request::read_command == uint8_t(Command::NONE)) {
+      throw std::invalid_argument("Request does not support reads");
+    }
+    ensureConnected();
+
     // Prevent parallel reads/writes
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -61,16 +71,26 @@ public:
       crc16::update(crc_, byte);
     }
 
-    // Write the buffer to the serial device
-    device_->write(buffer_.data(), buffer_.size());
+    // Write the read command, retrying partial writes.
+    writeAll(buffer_.data(), buffer_.size());
 
-    // Set the buffer to the size of the fields, size of CRC
-    buffer_.resize(buffer_.max_size());
-
-    // Read the response from the device
-    std::size_t bytes_read = device_->read(buffer_.data(), buffer_.size());
+    // Read exactly-sized fixed payloads (numeric requests) and read-until-idle for
+    // dynamic payloads (e.g. firmware version strings).
+    std::size_t bytes_read = 0;
+    if constexpr (requestHasDynamicSize<Request>()) {
+      buffer_.resize(buffer_.max_size());
+      bytes_read = readUntilIdle(buffer_.data(), buffer_.size());
+    } else {
+      constexpr std::size_t response_size = requestResponseSize<Request>();
+      buffer_.resize(response_size);
+      readExactly(buffer_.data(), buffer_.size());
+      bytes_read = response_size;
+    }
 
     buffer_.resize(bytes_read);
+    if (buffer_.size() < sizeof(uint16_t)) {
+      throw std::logic_error("response was too short");
+    }
 
     // Extract the CRC from the the back of the buffer
     auto recv_crc = buffer_.pop_back<uint16_t>();
@@ -101,6 +121,10 @@ public:
   template<typename Request>
   void write(const Request & request, const unsigned char address = 128)
   {
+    if constexpr (Request::write_command == uint8_t(Command::NONE)) {
+      throw std::invalid_argument("Request does not support writes");
+    }
+
     // Write the fields to the roboclaw
     write<Request>(request.fields, address);
   }
@@ -108,14 +132,19 @@ public:
   template<typename Request>
   void write(const typename Request::ArgsTuple & fields, const unsigned char address = 128)
   {
+    if constexpr (Request::write_command == uint8_t(Command::NONE)) {
+      throw std::invalid_argument("Request does not support writes");
+    }
+    ensureConnected();
+
     // Prevent parallel read/writes
     std::lock_guard<std::mutex> lock(mutex_);
 
     // Initialize buffer with Write request, fields, and CRC
     this->bufferSetupWrite<Request>(address, fields);
 
-    // Write the request
-    device_->write(buffer_.data(), buffer_.size());
+    // Write the request, retrying partial writes.
+    writeAll(buffer_.data(), buffer_.size());
 
     if (!this->readAck()) {
       throw std::logic_error("did not get an ack!");
@@ -188,9 +217,88 @@ private:
   {
     // We only expect an ACK from the roboclaw
     buffer_.resize(1);
-    device_->read(buffer_.data(), buffer_.size());
+    readExactly(buffer_.data(), buffer_.size());
 
     return buffer_.pop_back() == ACK;
+  }
+
+  void ensureConnected() const
+  {
+    if (!device_ || !device_->connected()) {
+      throw std::runtime_error("serial device is not connected");
+    }
+  }
+
+  void writeAll(const std::byte * data, const std::size_t size)
+  {
+    std::size_t bytes_written = 0;
+    while (bytes_written < size) {
+      const auto written = device_->write(data + bytes_written, size - bytes_written);
+      if (written == 0) {
+        throw std::runtime_error("serial write made no progress");
+      }
+      bytes_written += written;
+    }
+  }
+
+  void readExactly(std::byte * data, const std::size_t size)
+  {
+    std::size_t bytes_read = 0;
+    while (bytes_read < size) {
+      const auto received = device_->read(data + bytes_read, size - bytes_read);
+      if (received == 0) {
+        throw std::runtime_error("serial read made no progress");
+      }
+      bytes_read += received;
+    }
+  }
+
+  std::size_t readUntilIdle(std::byte * data, const std::size_t max_size)
+  {
+    std::size_t bytes_read = 0;
+    while (bytes_read < max_size) {
+      try {
+        const auto received = device_->read(data + bytes_read, max_size - bytes_read);
+        if (received == 0) {
+          break;
+        }
+        bytes_read += received;
+      } catch (const std::runtime_error &) {
+        if (bytes_read == 0) {
+          throw;
+        }
+        break;
+      }
+    }
+
+    return bytes_read;
+  }
+
+  template<typename Tuple, std::size_t ... Indices>
+  static constexpr std::size_t tupleStaticByteSize(std::index_sequence<Indices...>)
+  {
+    return (sizeof(std::tuple_element_t<Indices, Tuple>) + ... + 0U);
+  }
+
+  template<typename Tuple, std::size_t ... Indices>
+  static constexpr bool tupleHasDynamicType(std::index_sequence<Indices...>)
+  {
+    return (std::is_same_v<std::tuple_element_t<Indices, Tuple>, std::string> || ... || false);
+  }
+
+  template<typename Request>
+  static constexpr bool requestHasDynamicSize()
+  {
+    using ArgsTuple = typename Request::ArgsTuple;
+    return tupleHasDynamicType<ArgsTuple>(std::make_index_sequence<std::tuple_size_v<ArgsTuple>>{});
+  }
+
+  template<typename Request>
+  static constexpr std::size_t requestResponseSize()
+  {
+    using ArgsTuple = typename Request::ArgsTuple;
+    return tupleStaticByteSize<ArgsTuple>(std::make_index_sequence<std::tuple_size_v<ArgsTuple>>{}) +
+           sizeof(uint16_t);
   }
 
   const std::byte ACK = std::byte(255U);
