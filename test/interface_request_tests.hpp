@@ -232,7 +232,7 @@ TEST_F(TestExecutor, WriteThrowsForReadOnlyRequest)
     create_byte_vector({0xff}), create_byte_vector({0x80, 0xff, 0x43, 0x43}));
 
   roboclaw_serial::Interface interface(device);
-  roboclaw_serial::FirmwareVersion request;
+  roboclaw_serial::MainBatteryVoltage request;
 
   ASSERT_THROW(interface.write(request), std::invalid_argument);
 }
