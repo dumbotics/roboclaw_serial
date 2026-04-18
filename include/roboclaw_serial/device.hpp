@@ -14,13 +14,17 @@
 
 #pragma once
 
+#include <errno.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 namespace roboclaw_serial
@@ -33,16 +37,32 @@ public:
 
   SerialDevice() = default;
 
-  explicit SerialDevice(const std::string device) {connect(device);}
+  explicit SerialDevice(const std::string & device) {connect(device);}
   virtual ~SerialDevice() {disconnect();}
+
+  void setReadTimeoutUs(const std::size_t timeout_us) {read_timeout_us_ = timeout_us;}
+
+  std::size_t readTimeoutUs() const {return read_timeout_us_;}
+
+  void setBaudRate(const speed_t baud_rate) {baud_rate_ = baud_rate;}
 
   virtual bool connect(const std::string & device)
   {
-    fd_ = open(device.c_str(), O_RDWR | O_NOCTTY);
+    if (connected_) {
+      disconnect();
+    }
+
+    fd_ = open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     connected_ = fd_ != -1;
 
     if (connected_) {
-      setSerialDeviceOptions();
+      try {
+        setSerialDeviceOptions();
+      } catch (const std::exception & e) {
+        std::cerr << "Failed to configure serial device: " << device << " (" << e.what() << ")"
+                  << std::endl;
+        disconnect();
+      }
     } else {
       std::cerr << "Failed to open serial device: " << device << std::endl;
       perror("Error");
@@ -56,6 +76,7 @@ public:
     if (connected_) {
       close(fd_);
       connected_ = false;
+      fd_ = -1;
     }
   }
 
@@ -63,62 +84,153 @@ public:
 
   virtual std::size_t write(const std::byte * buffer, std::size_t count)
   {
-    ssize_t result = ::write(fd_, buffer, count);
-    if (result < 0) {
-      // Error writing to device
+    if (!connected_ || fd_ < 0) {
+      throw std::runtime_error("Serial device is not connected!");
+    }
+
+    while (true) {
+      const ssize_t result = ::write(fd_, buffer, count);
+      if (result >= 0) {
+        return static_cast<std::size_t>(result);
+      }
+
+      if (errno == EINTR) {
+        continue;
+      }
+
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        waitForWritable();
+        continue;
+      }
+
       throw std::range_error("Error writing to the device!");
     }
-    return static_cast<std::size_t>(result) == count;
   }
 
   virtual std::size_t read(std::byte * buffer, std::size_t count)
   {
-    fd_set set;
-    struct timeval timeout;
-
-    /* Initialize the file descriptor set. */
-    FD_ZERO(&set);
-    FD_SET(fd_, &set);
-
-    /* Initialize the timeout data structure. */
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 10000;  // 10ms
-
-    /* select returns 0 if timeout, 1 if input available, -1 if error. */
-    int res = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
-    if (res < 0) {
-      throw std::range_error("Error reading from the serial device!");
-    } else if (res == 0) {
-      throw std::runtime_error("Read timeout!");
-    }
-    ssize_t result = ::read(fd_, buffer, count);
-    if (result < 0) {
-      // Error reading from the device
-      throw std::range_error("Error reading from the serial device!");
+    if (!connected_ || fd_ < 0) {
+      throw std::runtime_error("Serial device is not connected!");
     }
 
-    return static_cast<std::size_t>(result);
+    waitForReadable();
+
+    while (true) {
+      const ssize_t result = ::read(fd_, buffer, count);
+      if (result >= 0) {
+        return static_cast<std::size_t>(result);
+      }
+
+      if (errno == EINTR) {
+        continue;
+      }
+
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        waitForReadable();
+        continue;
+      }
+
+      throw std::range_error("Error reading from the serial device!");
+    }
   }
 
 protected:
   bool connected_ = false;
 
 private:
+  void waitForReadable() const
+  {
+    while (true) {
+      fd_set set;
+      FD_ZERO(&set);
+      FD_SET(fd_, &set);
+
+      struct timeval timeout = timeoutStruct();
+      const int ready = select(fd_ + 1, &set, nullptr, nullptr, &timeout);
+      if (ready > 0) {
+        return;
+      }
+
+      if (ready == 0) {
+        throw std::runtime_error("Read timeout!");
+      }
+
+      if (errno == EINTR) {
+        continue;
+      }
+
+      throw std::range_error("Error reading from the serial device!");
+    }
+  }
+
+  void waitForWritable() const
+  {
+    while (true) {
+      fd_set set;
+      FD_ZERO(&set);
+      FD_SET(fd_, &set);
+
+      struct timeval timeout = timeoutStruct();
+      const int ready = select(fd_ + 1, nullptr, &set, nullptr, &timeout);
+      if (ready > 0) {
+        return;
+      }
+
+      if (ready == 0) {
+        throw std::runtime_error("Write timeout!");
+      }
+
+      if (errno == EINTR) {
+        continue;
+      }
+
+      throw std::range_error("Error writing to the device!");
+    }
+  }
+
+  struct timeval timeoutStruct() const
+  {
+    struct timeval timeout;
+    timeout.tv_sec = static_cast<time_t>(read_timeout_us_ / 1000000U);
+    timeout.tv_usec = static_cast<suseconds_t>(read_timeout_us_ % 1000000U);
+    return timeout;
+  }
+
   void setSerialDeviceOptions()
   {
-    struct termios options;
-    tcgetattr(fd_, &options);
-    options.c_cflag = CS8 | CLOCAL | CREAD;
+    struct termios options {};
+    if (tcgetattr(fd_, &options) < 0) {
+      throw std::runtime_error("Unable to read serial options");
+    }
+
+    cfmakeraw(&options);
+    options.c_cflag |= (CLOCAL | CREAD);
+    options.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS);
+    options.c_cflag |= CS8;
     options.c_iflag = IGNPAR;
     options.c_oflag = 0;
     options.c_lflag = 0;
+    options.c_cc[VMIN] = 0;
+    options.c_cc[VTIME] = 0;
+
+    if (cfsetispeed(&options, baud_rate_) < 0 || cfsetospeed(&options, baud_rate_) < 0) {
+      throw std::runtime_error("Unable to set baud rate");
+    }
+
     tcflush(fd_, TCIFLUSH);
-    tcsetattr(fd_, TCSANOW, &options);
+    if (tcsetattr(fd_, TCSANOW, &options) < 0) {
+      throw std::runtime_error("Unable to apply serial options");
+    }
 
     // Set the file descriptor to non-blocking mode
-    fcntl(fd_, F_SETFL, O_NONBLOCK);
+    const int flags = fcntl(fd_, F_GETFL, 0);
+    if (flags < 0 || fcntl(fd_, F_SETFL, flags | O_NONBLOCK) < 0) {
+      throw std::runtime_error("Unable to set non-blocking mode");
+    }
   }
 
+  speed_t baud_rate_ = B38400;
+  std::size_t read_timeout_us_ = 10000;
   int fd_ = -1;
 };
 

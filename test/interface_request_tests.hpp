@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -88,6 +89,65 @@ private:
   roboclaw_serial::Interface interface_;
 };
 
+class ChunkedDummyDevice : public roboclaw_serial::SerialDevice
+{
+public:
+  ChunkedDummyDevice(
+    std::vector<std::byte> expected_write_buffer, std::vector<std::byte> read_buffer,
+    std::size_t max_write_chunk, std::size_t max_read_chunk)
+  : expected_write_buffer_(std::move(expected_write_buffer)),
+    read_buffer_(std::move(read_buffer)),
+    max_write_chunk_(max_write_chunk),
+    max_read_chunk_(max_read_chunk)
+  {
+    connect("dummy chunked device");
+  }
+
+  bool connect(const std::string &) override
+  {
+    connected_ = true;
+    return true;
+  }
+
+  void disconnect() override {connected_ = false;}
+
+  std::size_t write(const std::byte * buffer, std::size_t count) override
+  {
+    const std::size_t chunk = std::min(max_write_chunk_, count);
+    for (std::size_t i = 0; i < chunk; ++i) {
+      observed_write_buffer_.push_back(buffer[i]);
+    }
+
+    return chunk;
+  }
+
+  std::size_t read(std::byte * buffer, std::size_t count) override
+  {
+    const std::size_t remaining = read_buffer_.size() - read_cursor_;
+    if (remaining == 0) {
+      return 0;
+    }
+
+    const std::size_t chunk = std::min({remaining, count, max_read_chunk_});
+    for (std::size_t i = 0; i < chunk; ++i) {
+      buffer[i] = read_buffer_[read_cursor_ + i];
+    }
+
+    read_cursor_ += chunk;
+    return chunk;
+  }
+
+  bool writeBufferMatches() const {return observed_write_buffer_ == expected_write_buffer_;}
+
+private:
+  std::vector<std::byte> expected_write_buffer_;
+  std::vector<std::byte> observed_write_buffer_;
+  std::vector<std::byte> read_buffer_;
+  std::size_t read_cursor_ = 0;
+  std::size_t max_write_chunk_;
+  std::size_t max_read_chunk_;
+};
+
 TEST_F(TestExecutor, WriteVelocityPIDConstantsM1SerializationTest)
 {
   this->executeTest(
@@ -123,4 +183,56 @@ TEST_F(TestExecutor, ReadEncoderCountersSerializationTest)
       {0x80, 0x4e},  // writeBytes
       {0x00, 0x00, 0x30, 0xf0, 0x00, 0x00, 0xcf, 0xdc, 0xd4, 0xdb}  // readBytes
     }});
+}
+
+TEST_F(TestExecutor, WriteRetriesUntilCompleteWhenDeviceWritesPartialChunks)
+{
+  auto device = std::make_shared<ChunkedDummyDevice>(
+    create_byte_vector(
+      {0x80, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0xb7, 0x00, 0x00, 0x03, 0x6e, 0x00,
+       0x03, 0x13, 0x5a, 0x7d, 0x8e}),
+    create_byte_vector({0xff}), 3, 1);
+
+  roboclaw_serial::Interface interface(device);
+  roboclaw_serial::VelocityPIDConstantsM1 request;
+  request.fields = std::make_tuple(0, 8631, 878, 201562);
+
+  ASSERT_NO_THROW(interface.write(request));
+  ASSERT_TRUE(device->writeBufferMatches());
+}
+
+TEST_F(TestExecutor, ReadRetriesUntilCompleteWhenDeviceReadsPartialChunks)
+{
+  auto device = std::make_shared<ChunkedDummyDevice>(
+    create_byte_vector({0x80, 0x4e}),
+    create_byte_vector({0x00, 0x00, 0x30, 0xf0, 0x00, 0x00, 0xcf, 0xdc, 0xd4, 0xdb}), 2, 2);
+
+  roboclaw_serial::Interface interface(device);
+  roboclaw_serial::EncoderCounters request;
+
+  interface.read(request);
+  ASSERT_EQ(std::make_tuple(12528, 53212), request.fields);
+  ASSERT_TRUE(device->writeBufferMatches());
+}
+
+TEST_F(TestExecutor, ReadThrowsForWriteOnlyRequest)
+{
+  auto device = std::make_shared<DummyTestDevice>(
+    create_byte_vector({0xff}), create_byte_vector({0x80, 0xff}));
+
+  roboclaw_serial::Interface interface(device);
+  roboclaw_serial::DriveM1M2WithSignedSpeed request;
+
+  ASSERT_THROW(interface.read(request), std::invalid_argument);
+}
+
+TEST_F(TestExecutor, WriteThrowsForReadOnlyRequest)
+{
+  auto device = std::make_shared<DummyTestDevice>(
+    create_byte_vector({0xff}), create_byte_vector({0x80, 0xff, 0x43, 0x43}));
+
+  roboclaw_serial::Interface interface(device);
+  roboclaw_serial::MainBatteryVoltage request;
+
+  ASSERT_THROW(interface.write(request), std::invalid_argument);
 }
